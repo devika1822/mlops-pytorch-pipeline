@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment variables and secrets
+.env
+*.env
+
+# PyTorch model checkpoints
+checkpoints/
+*.pt
+*.pth
+
+# Dataset
+data/
+
+# Test/cache files
+.pytest_cache/
+.coverage
+
+# OS files
+.DS_Store
+Thumbs.db
