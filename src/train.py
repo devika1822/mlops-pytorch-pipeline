@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import torch
@@ -10,8 +11,8 @@ from model import get_model
 
 
 def load_config(config_path: str) -> dict:
-    with open(config_path, "r") as file:
-        return yaml.safe_load(file)
+    with open(config_path) as f:
+        return yaml.safe_load(f)
 
 
 def train_one_epoch(
@@ -21,15 +22,15 @@ def train_one_epoch(
     criterion: nn.Module,
     device: torch.device,
 ) -> tuple[float, float]:
+
     model.train()
 
     total_loss = 0.0
     correct = 0
     total = 0
 
-    for inputs, targets in loader:
-        inputs = inputs.to(device)
-        targets = targets.to(device)
+    for batch_idx, (inputs, targets) in enumerate(loader):
+        inputs, targets = inputs.to(device), targets.to(device)
 
         optimizer.zero_grad()
 
@@ -46,10 +47,10 @@ def train_one_epoch(
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-    average_loss = total_loss / total
+    avg_loss = total_loss / total
     accuracy = correct / total
 
-    return average_loss, accuracy
+    return avg_loss, accuracy
 
 
 @torch.no_grad()
@@ -59,6 +60,7 @@ def evaluate(
     criterion: nn.Module,
     device: torch.device,
 ) -> tuple[float, float]:
+
     model.eval()
 
     total_loss = 0.0
@@ -66,8 +68,7 @@ def evaluate(
     total = 0
 
     for inputs, targets in loader:
-        inputs = inputs.to(device)
-        targets = targets.to(device)
+        inputs, targets = inputs.to(device), targets.to(device)
 
         outputs = model(inputs)
         loss = criterion(outputs, targets)
@@ -79,10 +80,10 @@ def evaluate(
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-    average_loss = total_loss / total
+    avg_loss = total_loss / total
     accuracy = correct / total
 
-    return average_loss, accuracy
+    return avg_loss, accuracy
 
 
 def main():
@@ -95,16 +96,6 @@ def main():
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
-    )
-
-    print(
-        json.dumps(
-            {
-                "event": "training_started",
-                "device": str(device),
-            }
-        ),
-        flush=True,
     )
 
     model = get_model(
@@ -132,7 +123,7 @@ def main():
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(config["training"]["epochs"]):
-        train_loss, train_accuracy = train_one_epoch(
+        train_loss, train_acc = train_one_epoch(
             model,
             train_loader,
             optimizer,
@@ -140,7 +131,7 @@ def main():
             device,
         )
 
-        val_loss, val_accuracy = evaluate(
+        val_loss, val_acc = evaluate(
             model,
             val_loader,
             criterion,
@@ -150,9 +141,9 @@ def main():
         log_entry = {
             "epoch": epoch + 1,
             "train_loss": round(train_loss, 4),
-            "train_accuracy": round(train_accuracy, 4),
+            "train_accuracy": round(train_acc, 4),
             "val_loss": round(val_loss, 4),
-            "val_accuracy": round(val_accuracy, 4),
+            "val_accuracy": round(val_acc, 4),
         }
 
         print(json.dumps(log_entry), flush=True)
@@ -171,7 +162,7 @@ def main():
                     "model_state_dict": model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "val_loss": val_loss,
-                    "val_accuracy": val_accuracy,
+                    "val_accuracy": val_acc,
                 },
                 save_path,
             )
