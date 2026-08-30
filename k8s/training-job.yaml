@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-data-pvc
+  namespace: ml-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml-checkpoints-pvc
+  namespace: ml-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pytorch-training-job
+  namespace: ml-training
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: trainer
+          image: mlops-train:v1
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+          volumeMounts:
+            - name: training-config
+              mountPath: /app/configs
+              readOnly: true
+
+            - name: data-storage
+              mountPath: /app/data
+
+            - name: checkpoint-storage
+              mountPath: /app/checkpoints
+
+      volumes:
+        - name: training-config
+          configMap:
+            name: training-config
+
+        - name: data-storage
+          persistentVolumeClaim:
+            claimName: ml-data-pvc
+
+        - name: checkpoint-storage
+          persistentVolumeClaim:
+            claimName: ml-checkpoints-pvc
+
+  backoffLimit: 2
